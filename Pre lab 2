@@ -1,0 +1,116 @@
+;*******************************************************************************
+; Universidad del Valle de Guatemala	
+; IE2023 Programación de microcontroladores
+; Autor: Michelle Serrano 
+; Compilador: PIC-AS (v2.36), MPLAB X IDE (v6.00)
+; Proyecto: Laboratorio 2
+; Hardware: PIC16F887 
+; Creado: 02/08/2022
+; Última modificación: 02/08/2022
+;*******************************************************************************
+PROCESSOR 16F887
+#include <xc.inc> 
+;*******************************************************************************
+;Configuracions
+;*******************************************************************************
+; CONFIG1
+  CONFIG  FOSC = INTRC_NOCLKOUT 
+  CONFIG  WDTE = OFF            
+  CONFIG  PWRTE = ON           
+  CONFIG  MCLRE = OFF           
+  CONFIG  CP = OFF              
+  CONFIG  CPD = OFF             
+  CONFIG  BOREN = OFF           
+  CONFIG  IESO = OFF            
+  CONFIG  FCMEN = OFF           
+  CONFIG  LVP = OFF             
+
+; CONFIG2
+  CONFIG  BOR4V = BOR40V        
+  CONFIG  WRT = OFF    
+;*******************************************************************************
+; Variables
+;******************************************************************************* 
+PSECT udata_shr
+   cont100ms:
+    DS 1 ; 1 BYTE, 4 bits
+;*******************************************************************************
+; Vector Reset 
+;*******************************************************************************     
+PSECT CODE, delta=2, abs
+ ORG 0x0000
+    goto MAIN
+;*******************************************************************************
+; Código Pricipal
+;*******************************************************************************       
+PSECT CODE, delta=2, abs
+ ORG 0x0100
+
+MAIN:
+    call Reloj
+    call PYE
+    call conf_timer0
+   
+Loop:
+    INCF PORTB, F	; Incrementamos el Puerto B
+   
+
+Contador:
+    BTFSS INTCON, 2	; Verificamos si la bandera T0IF = 1?
+    goto $-1
+    INCF PORTB
+    BCF INTCON, 2	; Borramos la bandera T0IF
+    MOVLW 61
+    MOVWF TMR0
+    INCF cont100ms, F
+    MOVF cont100ms, W
+; SUBLW 10
+    BTFSS STATUS, 2	; verificamos bandera z
+    GOTO Contador
+    CLRF cont100ms
+    GOTO Loop		; Regresamos LOOP
+;*******************************************************************************
+; Secciones
+;******************************************************************************* 
+Reloj: 
+;oscilador a 1Mhz
+    banksel OSCCON
+    bsf	OSCCON, 6
+    bcf OSCCON, 5
+    bsf OSCCON, 4
+    
+    bsf OSCCON, 0
+    
+    RETURN
+    
+PYE:
+    banksel ANSEL
+    banksel ANSELH
+    clrf ANSEL
+    clrf ANSELH   ;Puertos digitales
+    
+    banksel TRISB ;CONTADOR AUMENTO
+    clrf TRISB    ;PORTB como output, limpiando el registro TRISB
+
+    RETURN 
+    
+conf_timer0: 
+
+    BANKSEL OPTION_REG
+    BCF OPTION_REG, 5	; T0CS: FOSC/4 COMO RELOJ (MODO TEMPORIZADOR)
+    BCF OPTION_REG, 3	; PSA: ASIGNAMOS EL PRESCALER AL TMR0
+    
+    BSF OPTION_REG, 2
+    BSF OPTION_REG, 1
+    BCF OPTION_REG, 0	; PS2-0: PRESCALER 1:128 SELECIONADO 
+    
+    BANKSEL PORTB
+    CLRF PORTB		; Se limpia el puerto B
+    CLRF cont100ms	; Se limpia la variable cont100ms
+    MOVLW 61
+    MOVWF TMR0		; CARGAMOS EL VALOR DE N = DESBORDE 100mS
+   
+    RETURN 
+    
+END
+    
